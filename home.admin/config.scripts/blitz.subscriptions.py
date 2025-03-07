@@ -221,7 +221,7 @@ def main():
     choices.append(("LIST", "My Subscriptions"))
     choices.append(("NEW1", "+ IP2TOR Bridge (paid)"))
     choices.append(("NEW2", "+ LetsEncrypt HTTPS Domain (free)"))
-    choices.append(("NEW3", "Subscribe to Watchtower"))
+    choices.append(("NEW3", "+ Watchtower Subscription"))
 
     d = Dialog(dialog="dialog", autowidgetsize=True)
     d.set_background_title("RaspiBlitz Subscriptions")
@@ -406,9 +406,35 @@ def main():
             width=60,
             title="Watchtower Subscription"
         )
-        
         if code != d.OK:
             return
+        
+        # Validate URI format
+        if not re.match(r'^[a-f0-9]{66}@([a-z0-9]+\.onion|\d+\.\d+\.\d+\.\d+):\d+$', uri):
+            d.msgbox("Invalid format. Should be: pubkey@host:port\nExample: 03864ef025...@watchtower.com:9911",
+                    title="Error")
+            return
+
+        # Confirm subscription
+        code = d.yesno(f"Subscribe to this watchtower?\n\n{uri}", 
+                    title="Confirm Subscription")
+        if code != d.OK:
+            return
+
+        # Execute subscription command
+        try:
+            result = subprocess.run(
+                ['lncli', 'wtclient', 'add', uri],
+                capture_output=True,
+                text=True,
+                check=True
+            )
+            d.msgbox(f"Successfully subscribed to watchtower!\n\n{result.stdout}",
+                    title="Success")
+        except subprocess.CalledProcessError as e:
+            d.msgbox(f"Failed to subscribe:\n\n{e.stderr}", 
+                    title="Error")
+
 
 if __name__ == '__main__':
     main()
