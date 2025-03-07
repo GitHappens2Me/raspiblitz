@@ -212,6 +212,69 @@ The following additional information is available:
     my_subscriptions()
 
 
+def check_and_enable_wtclient():
+    config_path = "/home/bitcoin/.lnd/lnd.conf"
+    needs_restart = False
+    
+    try:
+        # Read current config
+        with open(config_path, 'r') as f:
+            lines = f.readlines()
+
+        # Parse config
+        wtclient_section = False
+        active_setting = False
+        new_lines = []
+        
+        for line in lines:
+            stripped = line.strip()
+            
+            # Detect section
+            if stripped == "[Wtclient]":
+                wtclient_section = True
+                new_lines.append(line)
+            elif stripped.startswith("["):
+                wtclient_section = False
+                new_lines.append(line)
+            else:
+                # Check for setting in section
+                if wtclient_section:
+                    if stripped.startswith("wtclient.active"):
+                        if "=1" in stripped:
+                            active_setting = True
+                        new_lines.append("wtclient.active=1\n")
+                    else:
+                        new_lines.append(line)
+                else:
+                    new_lines.append(line)
+
+        # Add section if missing
+        if not "[Wtclient]" in lines:
+            new_lines.append("\n[Wtclient]\n")
+            new_lines.append("wtclient.active=1\n")
+            needs_restart = True
+        elif not active_setting:
+            new_lines.append("wtclient.active=1\n")
+            needs_restart = True
+
+        # Write back if changes needed
+        if needs_restart:
+            with open(config_path, 'w') as f:
+                f.writelines(new_lines)
+            print("Enabled wtclient in lnd.conf")
+            
+            # Restart LND
+            subprocess.run(["sudo", "systemctl", "restart", "lnd"])
+            print("Restarted LND to apply changes")
+            time.sleep(5)  # Wait for LND to restart
+
+        return True
+    
+    except Exception as e:
+        print(f"Error modifying lnd.conf: {str(e)}")
+        return False
+
+
 def main():
     #######################
     # SSH MENU
@@ -409,16 +472,19 @@ def main():
         if code != d.OK:
             return
         
-        # Validate URI format
-        if not re.match(r'^[a-f0-9]{66}@([a-z0-9]+\.onion|\d+\.\d+\.\d+\.\d+):\d+$', uri):
-            d.msgbox("Invalid format. Should be: pubkey@host:port\nExample: 03864ef025...@watchtower.com:9911",
-                    title="Error")
-            return
+        # Validate URI format (needs regex)
+        #if not re.match(r'^[a-f0-9]{66}@([a-z0-9]+\.onion|\d+\.\d+\.\d+\.\d+):\d+$', uri):
+        #    d.msgbox("Invalid format. Should be: pubkey@host:port\nExample: 03864ef025...@watchtower.com:9911",
+        #            title="Error")
+        #    return
 
         # Confirm subscription
         code = d.yesno(f"Subscribe to this watchtower?\n\n{uri}", 
                     title="Confirm Subscription")
         if code != d.OK:
+            return
+        
+        if not check_and_enable_wtclient():
             return
 
         # Execute subscription command
