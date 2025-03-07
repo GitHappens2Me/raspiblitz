@@ -221,6 +221,7 @@ def main():
     choices.append(("LIST", "My Subscriptions"))
     choices.append(("NEW1", "+ IP2TOR Bridge (paid)"))
     choices.append(("NEW2", "+ LetsEncrypt HTTPS Domain (free)"))
+    choices.append(("NEW3", "Subscribe to Watchtower"))
 
     d = Dialog(dialog="dialog", autowidgetsize=True)
     d.set_background_title("RaspiBlitz Subscriptions")
@@ -391,6 +392,23 @@ def main():
         os.system(cmd)
 
         sys.exit(0)
+
+    ###############################
+    # NEW WATCHTOWER SUBSCRIPTION
+    ###############################
+    if tag == "NEW3":
+        d = Dialog(dialog="dialog", autowidgetsize=True)
+    
+        # Get watchtower URI from user
+        code, uri = d.inputbox(
+            "Enter Watchtower URI (pubkey@host:port):",
+            height=10, 
+            width=60,
+            title="Watchtower Subscription"
+        )
+        
+        if code != d.OK:
+            return
 
 if __name__ == '__main__':
     main()
