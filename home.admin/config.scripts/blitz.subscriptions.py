@@ -241,12 +241,20 @@ The following additional information is available:
     else:
         text = "no text?! FIXME"
 
-    if selected_sub['active']:          
-        extra_label = "CANCEL SUBSCRIPTION"
+    if selected_sub['type'] == "watchtower":
+        if selected_sub['active']:
+            extra_label = "DEACTIVATE TOWER"
+        else:
+            extra_label = "ACTIVATE TOWER"
     else:
-        extra_label = "DELETE SUBSCRIPTION"
+        if selected_sub['active']:
+            extra_label = "CANCEL SUBSCRIPTION"
+        else:
+            extra_label = "DELETE SUBSCRIPTION"
+
     code = d.msgbox(text, title="Subscription Detail", ok_label="Back", extra_button=True, extra_label=extra_label,
                     width=75, height=30)
+
 
     # user wants to delete this subscription
     # call the responsible sub script for deletion just in case any subscription needs to do some extra
@@ -266,25 +274,40 @@ The following additional information is available:
             os.system(cmd)
             time.sleep(2)
         elif selected_sub['type'] == "watchtower": # TODO Using cmd instead of subprocess for conformity with the others (Not sure which is best)
-            #cmd = "python /home/admin/config.scripts/blitz.subscriptions.watchtower.py remove-watchtower {0}".format(
-            #    selected_sub['pubkey'])
-            #print("# running: {0}".format(cmd))
-            #os.system(cmd)
-            #time.sleep(2)
-            os.system("clear")
-            try:
-                result = subprocess.run(
-                    ['python', '/home/admin/config.scripts/blitz.subscriptions.watchtower.py', 'remove-watchtower', selected_sub['pubkey']], 
-                    capture_output=True,
-                    text=True,
-                    check=True,
-                    timeout=30 
+            if(selected_sub['active']): #TODO combine this if statement
+                cmd = "python /home/admin/config.scripts/blitz.subscriptions.watchtower.py remove-watchtower {0}".format(
+                selected_sub['pubkey'],
                 )
-                d.msgbox(f"Successfully removed watchtower subscription!\n\n{result.stdout}",
-                        title="Success")
-            except subprocess.CalledProcessError as e:
-                d.msgbox(f"Failed to remove watchtower:\n\n{e.stderr}",
-                        title="Error")
+                print("# running: {0}".format(cmd))
+                os.system(cmd)
+                time.sleep(2) #TODO why am i waiting here? Not needed i think
+            else:
+                cmd = "python /home/admin/config.scripts/blitz.subscriptions.watchtower.py add-watchtower {0}@{1}".format(
+                selected_sub['pubkey'],
+                selected_sub['addresses'][0]#TODO handle multiple addresses for a watchtower
+                )
+                print("# running: {0}".format(cmd))
+                os.system(cmd)
+                time.sleep(2)
+
+
+            
+
+        
+            #os.system("clear")
+            #try:
+            #    result = subprocess.run(
+            #        ['python', '/home/admin/config.scripts/blitz.subscriptions.watchtower.py', watchtower_option, selected_sub['pubkey']], 
+            #        capture_output=True,
+            #        text=True,
+            #        check=True,
+            #        timeout=30 
+            #    )
+            #    d.msgbox(f"Successfully removed watchtower subscription!\n\n{result.stdout}",
+            #            title="Success")
+            #except subprocess.CalledProcessError as e:
+            #    d.msgbox(f"Failed to remove watchtower:\n\n{e.stderr}",
+            #            title="Error")
         else:
             print("# FAIL: unknown subscription type")
             time.sleep(3)
