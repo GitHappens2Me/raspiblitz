@@ -55,6 +55,7 @@ def seconds_left(date_obj):
 def my_subscriptions():
     # check if any subscriptions are available
     count_subscriptions = 0
+    subs = []
     try:
         os.system("sudo chown admin:admin {0}".format(SUBSCRIPTIONS_FILE))
         subs = toml.load(SUBSCRIPTIONS_FILE)
@@ -90,7 +91,7 @@ You have no active or inactive subscriptions.
     choices = []
     lookup = {}
     lookup_index = 0
-    subs = toml.load(SUBSCRIPTIONS_FILE)
+    # subs = toml.load(SUBSCRIPTIONS_FILE) #TODO subs is already loaded in line 60? Does it need to be set here as well (and without try-catch?)?
 
     # list ip2tor subscriptions
     if 'subscriptions_ip2tor' in subs:
