@@ -122,32 +122,18 @@ You have no active or inactive subscriptions.
             choices.append(("{0}".format(lookup_index), "{0} ({1})".format(name.ljust(30), active_state)))
 
      # list watchtower subscriptions
-    # list watchtower subscriptions
     for wt in watchtowers:
         lookup_index += 1
-        is_active = any(session['active_session_candidate'] for session in wt['session_info'])
-        active_state = "active" if is_active else "inactive"
-        
-        # Format address display
-        if wt['addresses']:
-            address = wt['addresses'][0].split(':')[0]
-            if address.endswith('.onion'):
-                uri_display = f"{address[:10]}.onion"
-            else:
-                uri_display = address[:10]
-        else:
-            uri_display = "no-addr"
-
         lookup[str(lookup_index)] = {
             'type': 'watchtower',
             'pubkey': wt['pubkey'],
             'addresses': wt['addresses'],
-            'active': is_active,
-            'session_info': wt['session_info']
+            'active': any(session['active_session_candidate'] for session in wt['session_info']),
+            'session_info': wt['session_info']  # ADD THIS LINE TO SHOW POLICY TYPES
         }
-        
-        name = f"WT ({active_state}) {wt['pubkey'][:10]}@{uri_display}"
-        choices.append((str(lookup_index), name.ljust(40)))
+        active_state = "active" if lookup[str(lookup_index)]['active'] else "inactive"
+        name = "{0}...@{1}".format(wt['pubkey'][:8], wt['addresses'][0].split(':')[0][:8])
+        choices.append(("{0}".format(lookup_index), "WT ({0}) {1}".format(active_state, name.ljust(30))))
 
 
     # show menu with options
