@@ -213,65 +213,30 @@ The following additional information is available:
 
 
 def check_and_enable_wtclient():
-    config_path = "/home/bitcoin/.lnd/lnd.conf"
-    needs_restart = False
-    
     try:
-        # Read current config
-        with open(config_path, 'r') as f:
-            lines = f.readlines()
-
-        # Parse config
-        wtclient_section = False
-        active_setting = False
-        new_lines = []
+        # Single command to enable wtclient in lnd.conf
+        result = subprocess.run(
+            [
+                "sudo", "sed", "-i",
+                # Ensure [Wtclient] section exists
+                "/^\[Wtclient\]/!{ $ a [Wtclient]\nwtclient.active=1 }",
+                # Update existing setting if section exists
+                "/^\[Wtclient\]/,/^\[/ s/^wtclient.active=.*/wtclient.active=1/",
+                "/mnt/hdd/lnd/lnd.conf"
+            ],
+            capture_output=True,
+            text=True,
+            check=True
+        )
         
-        for line in lines:
-            stripped = line.strip()
-            
-            # Detect section
-            if stripped == "[Wtclient]":
-                wtclient_section = True
-                new_lines.append(line)
-            elif stripped.startswith("["):
-                wtclient_section = False
-                new_lines.append(line)
-            else:
-                # Check for setting in section
-                if wtclient_section:
-                    if stripped.startswith("wtclient.active"):
-                        if "=1" in stripped:
-                            active_setting = True
-                        new_lines.append("wtclient.active=1\n")
-                    else:
-                        new_lines.append(line)
-                else:
-                    new_lines.append(line)
-
-        # Add section if missing
-        if not "[Wtclient]" in lines:
-            new_lines.append("\n[Wtclient]\n")
-            new_lines.append("wtclient.active=1\n")
-            needs_restart = True
-        elif not active_setting:
-            new_lines.append("wtclient.active=1\n")
-            needs_restart = True
-
-        # Write back if changes needed
-        if needs_restart:
-            with open(config_path, 'w') as f:
-                f.writelines(new_lines)
-            print("Enabled wtclient in lnd.conf")
-            
-            # Restart LND
+        # Restart LND if changes were made
+        if "wtclient.active=1" in subprocess.getoutput("sudo grep wtclient.active /mnt/hdd/lnd/lnd.conf"):
             subprocess.run(["sudo", "systemctl", "restart", "lnd"])
-            print("Restarted LND to apply changes")
-            time.sleep(5)  # Wait for LND to restart
+            return True
+        return False
 
-        return True
-    
-    except Exception as e:
-        print(f"Error modifying lnd.conf: {str(e)}")
+    except subprocess.CalledProcessError as e:
+        print(f"Error: {e.stderr}")
         return False
 
 
@@ -485,6 +450,7 @@ def main():
             return
         
         if not check_and_enable_wtclient():
+            d.msgbox("Failed to configure watchtower client", title="Error")
             return
 
         # Execute subscription command
