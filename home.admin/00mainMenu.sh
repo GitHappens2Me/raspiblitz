@@ -365,7 +365,7 @@ case $CHOICE in
             /home/admin/00parallelChainsMenu.sh
             ;;
         SUBSCRIBE)
-            sudo /home/admin/config.scripts/blitz.subscriptions.py #TODO sudo needed to read Watchtower config. Better way?
+            /home/admin/config.scripts/blitz.subscriptions.py #TODO sudo needed to read Watchtower config. Better way?
             ;;
         SERVICES)
             /home/admin/00settingsMenuServices.sh

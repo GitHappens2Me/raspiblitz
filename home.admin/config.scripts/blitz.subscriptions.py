@@ -281,29 +281,6 @@ The following additional information is available:
     my_subscriptions()
 
 
-def check_and_enable_wtclient():
-    file_path = '/mnt/hdd/lnd/lnd.conf'
-
-    try:
-        with open(file_path, 'r+') as f:
-            lines = f.readlines()
-            has_section = any(line.strip() == '[Wtclient]' for line in lines)
-            has_setting = any(line.strip() == 'wtclient.active=1' for line in lines)
-
-            if not has_setting:
-                if not has_section:
-                    lines.append('\n[Wtclient]\n')
-                lines.append('wtclient.active=1\n')
-                f.seek(0)
-                f.writelines(lines)
-                f.truncate()
-    except Exception as e:
-        print(f"Error modifying file: {e}")
-        return False
-    else:
-        print("Successfully updated lnd.conf" if not has_setting else "Setting already exists")
-        return True
-
 
 
 def main():
@@ -503,35 +480,39 @@ def main():
         if code != d.OK:
             return
 
-        # Validate URI format (needs regex)
-        #if not re.match(r'^[a-f0-9]{66}@([a-z0-9]+\.onion|\d+\.\d+\.\d+\.\d+):\d+$', uri):
-        #    d.msgbox("Invalid format. Should be: pubkey@host:port\nExample: 03864ef025...@watchtower.com:9911",
-        #            title="Error")
-        #    return
-
         # Confirm subscription
         code = d.yesno(f"Subscribe to this watchtower?\n\n{uri}",
                     title="Confirm Subscription")
         if code != d.OK:
             return
 
-        if not check_and_enable_wtclient():
-            d.msgbox("Failed to configure watchtower client", title="Error")
-            return
+
+        # Check if WTCLIENT is activated in lnd.conf
+        # if not activate it
+        cmd = "sudo python /home/admin/config.scripts/blitz.subscriptions.watchtower.py activate-watchtower-client" # TODO maybe i should use  subprocess.run here as well. What are dis-/advantages
+        print("# running: {0}".format(cmd))
+        os.system(cmd)
+        time.sleep(1)
 
         # Execute subscription command
         try:
-            result = subprocess.run( 
-                ['sudo', '-u', 'admin', 'lncli', 'wtclient', 'add', uri], #TODO This sudo to admin is only necessary because the script is run as sudo.
+            result = subprocess.run(
+                ["python", "/home/admin/config.scripts/blitz.subscriptions.watchtower.py", 
+                "add-watchtower", uri],
                 capture_output=True,
                 text=True,
-                check=True
+                check=True 
             )
-            d.msgbox(f"Successfully subscribed to watchtower!\n\n{result.stdout}",
-                    title="Success") #TODO This also shows the Output of the command which is always "{}" - why?
+            #Extract success message from stdout
+            success_msg = [line.split('=')[1] for line in result.stdout.split('\n') if 'result=' in line]
+            d.msgbox(f"Success: {success_msg[0]}" if success_msg else "Successfully subscribed!", title="Success")
+
         except subprocess.CalledProcessError as e:
-            d.msgbox(f"Failed to subscribe:\n\n{e.stderr}",
-                    title="Error")
+            # Extract error message from stdout using project convention
+            error_lines = [line.split('=')[1].strip("'") for line in e.stdout.split('\n') if 'error=' in line]
+            error_msg = error_lines[0] if error_lines else e.stderr
+            d.msgbox(f"Failed: {error_msg}", title="Error")
+
 
 
 
