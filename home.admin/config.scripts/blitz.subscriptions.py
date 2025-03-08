@@ -212,6 +212,7 @@ The following additional information is available:
     my_subscriptions()
 
 
+
 def check_and_enable_wtclient():
     file_path = '/mnt/hdd/lnd/lnd.conf'
 
@@ -229,9 +230,12 @@ def check_and_enable_wtclient():
                 f.writelines(lines)
                 f.truncate()
     except Exception as e:
+        return False
         print(f"Error modifying file: {e}")
     else:
+        return True
         print("Successfully updated lnd.conf" if not has_setting else "Setting already exists")
+
 
 
 def main():
@@ -420,17 +424,17 @@ def main():
     ###############################
     if tag == "NEW3":
         d = Dialog(dialog="dialog", autowidgetsize=True)
-    
+
         # Get watchtower URI from user
         code, uri = d.inputbox(
             "Enter Watchtower URI (pubkey@host:port):",
-            height=10, 
+            height=10,
             width=60,
             title="Watchtower Subscription"
         )
         if code != d.OK:
             return
-        
+
         # Validate URI format (needs regex)
         #if not re.match(r'^[a-f0-9]{66}@([a-z0-9]+\.onion|\d+\.\d+\.\d+\.\d+):\d+$', uri):
         #    d.msgbox("Invalid format. Should be: pubkey@host:port\nExample: 03864ef025...@watchtower.com:9911",
@@ -438,11 +442,11 @@ def main():
         #    return
 
         # Confirm subscription
-        code = d.yesno(f"Subscribe to this watchtower?\n\n{uri}", 
+        code = d.yesno(f"Subscribe to this watchtower?\n\n{uri}",
                     title="Confirm Subscription")
         if code != d.OK:
             return
-        
+
         if not check_and_enable_wtclient():
             d.msgbox("Failed to configure watchtower client", title="Error")
             return
@@ -458,8 +462,9 @@ def main():
             d.msgbox(f"Successfully subscribed to watchtower!\n\n{result.stdout}",
                     title="Success")
         except subprocess.CalledProcessError as e:
-            d.msgbox(f"Failed to subscribe:\n\n{e.stderr}", 
+            d.msgbox(f"Failed to subscribe:\n\n{e.stderr}",
                     title="Error")
+
 
 
 if __name__ == '__main__':
