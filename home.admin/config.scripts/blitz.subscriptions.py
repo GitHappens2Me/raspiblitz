@@ -212,7 +212,6 @@ The following additional information is available:
     my_subscriptions()
 
 
-
 def check_and_enable_wtclient():
     file_path = '/mnt/hdd/lnd/lnd.conf'
 
@@ -230,11 +229,11 @@ def check_and_enable_wtclient():
                 f.writelines(lines)
                 f.truncate()
     except Exception as e:
-        return False
         print(f"Error modifying file: {e}")
+        return False
     else:
-        return True
         print("Successfully updated lnd.conf" if not has_setting else "Setting already exists")
+        return True
 
 
 
@@ -453,8 +452,8 @@ def main():
 
         # Execute subscription command
         try:
-            result = subprocess.run(
-                ['lncli', 'wtclient', 'add', uri],
+            result = subprocess.run( 
+                ['sudo', '-u', 'admin', 'lncli', 'wtclient', 'add', uri], #TODO running as admin might not be optimal
                 capture_output=True,
                 text=True,
                 check=True
