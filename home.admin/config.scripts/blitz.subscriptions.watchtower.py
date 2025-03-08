@@ -1,8 +1,9 @@
 import sys
 import subprocess
 
-#TODO Maybe Use Blitzerror for Exceptionmanagment. like in blitz.subscriptions.letsencrypt.py
+#TODO add option to actually DELETE (not just deactivate) Watchtower (problably deleting the Database entry)
 
+#TODO Maybe Use Blitzerror for Exceptionmanagment. like in blitz.subscriptions.letsencrypt.py
 def handleException(e):
     if isinstance(e, BlitzError):
         #eprint(e.errorLong)
@@ -39,7 +40,52 @@ def add_watchtower():
         sys.stderr.write(f"Error: {str(e)}\n")
         sys.exit(1)
 
+def remove_watchtower():
+    try:
+        if len(sys.argv) <= 2:
+            raise ValueError("Missing URI parameter")
+            
+        pubkey = sys.argv[2]
+        
+        result = subprocess.run(
+            ['lncli', 'wtclient', 'remove', pubkey],
+            capture_output=True,
+            text=True,
+            check=True
+        )
+        # Explicit success exit
+        sys.exit(0)
+        
+    except subprocess.CalledProcessError as e:
+        print(f"Error removing watchtower: {e.stderr}")
+        sys.stderr.write(f"LNCLI Error: {e.stderr}\n")
+        sys.exit(1)
+    except Exception as e:
+        print(f"Error: {str(e)}")
+        sys.stderr.write(f"Error: {str(e)}\n")
+        sys.exit(1)
 
+
+def list_towers():
+    try:
+        result = subprocess.run(
+            ['lncli', 'wtclient', 'towers'],
+            capture_output=True,
+            text=True,
+            check=True
+        )
+        # Directly output the raw JSON result to stdout
+        print(result.stdout)
+        sys.exit(0)
+        
+    except subprocess.CalledProcessError as e:
+        print(f"LNCLI Error: {e.stderr.strip()}")
+        sys.stderr.write(f"Command failed: {e.cmd}\n")
+        sys.exit(1)
+    except Exception as e:
+        print(f"Unexpected Error: {str(e)}")
+        sys.stderr.write(f"Traceback: {traceback.format_exc()}\n")
+        sys.exit(1)
 
 def activate_watchtower_client():
     file_path = '/mnt/hdd/lnd/lnd.conf'
@@ -73,6 +119,10 @@ def main():
         add_watchtower()
     elif sys.argv[1] == "activate-watchtower-client":
         activate_watchtower_client()
+    elif sys.argv[1] == "list-towers":
+        list_towers()
+    elif sys.argv[1] == "remove-watchtower":
+        remove_watchtower()
     else:
         print("# unknown command")
 

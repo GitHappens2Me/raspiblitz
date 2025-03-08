@@ -66,19 +66,26 @@ def my_subscriptions():
     except Exception as e:
         print(f"warning: {e}")
 
-    # Load watchtower subscriptions
+    #Load subscriptions to watchtower
     watchtowers = []
     try:
         result = subprocess.run(
-            ['sudo', '-u', 'admin', 'lncli', 'wtclient', 'towers'],  #TODO This sudo to admin is only necessary because the script is run as sudo.
+            ['python', '/home/admin/config.scripts/blitz.subscriptions.watchtower.py', 'list-towers'],
             capture_output=True,
             text=True,
             check=True
         )
+        # On success, parse the raw JSON from stdout
         watchtowers = json.loads(result.stdout).get('towers', [])
         count_subscriptions += len(watchtowers)
+    
+    # TODO: Is this exception handling overkill?
+    except subprocess.CalledProcessError as e:
+        print(f"warning: {e.stdout.strip()}")
+    except json.JSONDecodeError:
+        print(f"warning: Invalid watchtower data format")
     except Exception as e:
-        print(f"warning: Failed to get watchtower subscriptions: {e}")
+        print(f"warning: Unexpected error: {str(e)}")
 
 
     if count_subscriptions == 0:
@@ -258,11 +265,16 @@ The following additional information is available:
             print("# running: {0}".format(cmd))
             os.system(cmd)
             time.sleep(2)
-        elif selected_sub['type'] == "watchtower": 
+        elif selected_sub['type'] == "watchtower": # TODO Using cmd instead of subprocess for conformity with the others (Not sure which is best)
+            #cmd = "python /home/admin/config.scripts/blitz.subscriptions.watchtower.py remove-watchtower {0}".format(
+            #    selected_sub['pubkey'])
+            #print("# running: {0}".format(cmd))
+            #os.system(cmd)
+            #time.sleep(2)
             os.system("clear")
             try:
                 result = subprocess.run(
-                    ['sudo', '-u', 'admin', 'lncli', 'wtclient', 'remove', selected_sub['pubkey']], #TODO This sudo to admin is only necessary because the script is run as sudo.
+                    ['python', '/home/admin/config.scripts/blitz.subscriptions.watchtower.py', 'remove-watchtower', selected_sub['pubkey']], 
                     capture_output=True,
                     text=True,
                     check=True,
