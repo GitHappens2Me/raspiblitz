@@ -129,7 +129,7 @@ You have no active or inactive subscriptions.
             'pubkey': wt['pubkey'],
             'addresses': wt['addresses'],
             'active': any(session['active_session_candidate'] for session in wt['session_info']),
-            'session_info': wt['session_info']  # ADD THIS LINE TO SHOW POLICY TYPES
+            'session_info': wt['session_info']  
         }
         active_state = "active" if lookup[str(lookup_index)]['active'] else "inactive"
         name = "{0}...@{1}".format(wt['pubkey'][:8], wt['addresses'][0].split(':')[0][:8])
@@ -157,7 +157,7 @@ You have no active or inactive subscriptions.
     if selected_sub['type'] == "watchtower":
         active_sessions = [si for si in selected_sub.get('session_info', []) if si['active_session_candidate']]
         text = '''
-This is a Lightning Watchtower subscription test
+This is a Lightning Watchtower subscription
 
 Pubkey: {pubkey}
 Address: {address}
@@ -234,7 +234,7 @@ The following additional information is available:
     else:
         text = "no text?! FIXME"
 
-    if selected_sub['active']:
+    if selected_sub['active']:          
         extra_label = "CANCEL SUBSCRIPTION"
     else:
         extra_label = "DELETE SUBSCRIPTION"
