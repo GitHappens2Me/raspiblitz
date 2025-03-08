@@ -11,6 +11,7 @@ import time
 from datetime import datetime
 
 import toml
+import json  #TODO Added this dependencie. Is that alright? 
 sys.path.append('/home/admin/raspiblitz/home.admin/BlitzPy/blitzpy')
 from config import RaspiBlitzConfig
 from dialog import Dialog
@@ -64,6 +65,21 @@ def my_subscriptions():
     except Exception as e:
         print(f"warning: {e}")
 
+    # Load watchtower subscriptions
+    watchtowers = []
+    try:
+        result = subprocess.run(
+            ['sudo', '-u', 'admin', 'lncli', 'wtclient', 'towers'],  #TODO This sudo to admin is only necessary because the script is run as sudo.
+            capture_output=True,
+            text=True,
+            check=True
+        )
+        watchtowers = json.loads(result.stdout).get('towers', [])
+        count_subscriptions += len(watchtowers)
+    except Exception as e:
+        print(f"warning: Failed to get watchtower subscriptions: {e}")
+
+
     if count_subscriptions == 0:
         Dialog(dialog="dialog", autowidgetsize=True).msgbox('''
 You have no active or inactive subscriptions.
@@ -104,6 +120,21 @@ You have no active or inactive subscriptions.
             name = "LETSENCRYPT {0}".format(sub['id'])
             choices.append(("{0}".format(lookup_index), "{0} ({1})".format(name.ljust(30), active_state)))
 
+     # list watchtower subscriptions
+    for wt in watchtowers:
+        lookup_index += 1
+        lookup[str(lookup_index)] = {
+            'type': 'watchtower',
+            'pubkey': wt['pubkey'],
+            'addresses': wt['addresses'],
+            'active': any(session['active_session_candidate'] for session in wt['session_info']),
+            'session_info': wt['session_info']  # ADD THIS LINE TO SHOW POLICY TYPES
+        }
+        active_state = "active" if lookup[str(lookup_index)]['active'] else "in-active"
+        name = "WATCHTOWER {0}...@{1}".format(wt['pubkey'][:8], wt['addresses'][0].split(':')[0])
+        choices.append(("{0}".format(lookup_index), "{0} ({1})".format(name.ljust(30), active_state)))
+
+
     # show menu with options
     d = Dialog(dialog="dialog", autowidgetsize=True)
     d.set_background_title("RaspiBlitz Subscriptions")
@@ -121,7 +152,29 @@ You have no active or inactive subscriptions.
     # show details of selected
     d = Dialog(dialog="dialog", autowidgetsize=True)
     d.set_background_title("My Subscriptions")
-    if selected_sub['type'] == "letsencrypt-v1":
+
+    if selected_sub['type'] == "watchtower":
+        active_sessions = [si for si in selected_sub.get('session_info', []) if si['active_session_candidate']]
+        text = '''
+This is a Lightning Watchtower subscription
+
+Pubkey: {pubkey}
+Address: {address}
+
+Active session candidate: {active}
+Number of sessions: {num_sessions}
+
+Supported policy types:
+{policy_types}
+'''.format(
+            pubkey=selected_sub['pubkey'],
+            address=selected_sub['addresses'][0],
+            active="Yes" if selected_sub['active'] else "No",
+            num_sessions=len(selected_sub.get('session_info', [])),
+            policy_types="\n".join([si['policy_type'] for si in selected_sub.get('session_info', [])])
+        )
+
+    elif selected_sub['type'] == "letsencrypt-v1":
         if len(selected_sub['warning']) > 0:
             selected_sub['warning'] = "\n{0}".format(selected_sub['warning'])
         text = '''
@@ -204,6 +257,21 @@ The following additional information is available:
             print("# running: {0}".format(cmd))
             os.system(cmd)
             time.sleep(2)
+        elif selected_sub['type'] == "watchtower": 
+            os.system("clear")
+            try:
+                result = subprocess.run(
+                    ['sudo', '-u', 'admin', 'lncli', 'wtclient', 'remove', selected_sub['pubkey']], #TODO This sudo to admin is only necessary because the script is run as sudo.
+                    capture_output=True,
+                    text=True,
+                    check=True,
+                    timeout=30 
+                )
+                d.msgbox(f"Successfully removed watchtower subscription!\n\n{result.stdout}",
+                        title="Success")
+            except subprocess.CalledProcessError as e:
+                d.msgbox(f"Failed to remove watchtower:\n\n{e.stderr}",
+                        title="Error")
         else:
             print("# FAIL: unknown subscription type")
             time.sleep(3)
@@ -453,13 +521,13 @@ def main():
         # Execute subscription command
         try:
             result = subprocess.run( 
-                ['sudo', '-u', 'admin', 'lncli', 'wtclient', 'add', uri], #TODO running as admin might not be optimal
+                ['sudo', '-u', 'admin', 'lncli', 'wtclient', 'add', uri], #TODO This sudo to admin is only necessary because the script is run as sudo.
                 capture_output=True,
                 text=True,
                 check=True
             )
             d.msgbox(f"Successfully subscribed to watchtower!\n\n{result.stdout}",
-                    title="Success")
+                    title="Success") #TODO This also shows the Output of the command which is always "{}" - why?
         except subprocess.CalledProcessError as e:
             d.msgbox(f"Failed to subscribe:\n\n{e.stderr}",
                     title="Error")
