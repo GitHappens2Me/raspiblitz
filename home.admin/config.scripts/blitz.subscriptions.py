@@ -213,31 +213,25 @@ The following additional information is available:
 
 
 def check_and_enable_wtclient():
-    try:
-        # Single command to enable wtclient in lnd.conf
-        result = subprocess.run(
-            [
-                "sudo", "sed", "-i",
-                # Ensure [Wtclient] section exists
-                "/^\[Wtclient\]/!{ $ a [Wtclient]\nwtclient.active=1 }",
-                # Update existing setting if section exists
-                "/^\[Wtclient\]/,/^\[/ s/^wtclient.active=.*/wtclient.active=1/",
-                "/mnt/hdd/lnd/lnd.conf"
-            ],
-            capture_output=True,
-            text=True,
-            check=True
-        )
-        
-        # Restart LND if changes were made
-        if "wtclient.active=1" in subprocess.getoutput("sudo grep wtclient.active /mnt/hdd/lnd/lnd.conf"):
-            subprocess.run(["sudo", "systemctl", "restart", "lnd"])
-            return True
-        return False
+    file_path = '/mnt/hdd/lnd/lnd.conf'
 
-    except subprocess.CalledProcessError as e:
-        print(f"Error: {e.stderr}")
-        return False
+    try:
+        with open(file_path, 'r+') as f:
+            lines = f.readlines()
+            has_section = any(line.strip() == '[Wtclient]' for line in lines)
+            has_setting = any(line.strip() == 'wtclient.active=1' for line in lines)
+
+            if not has_setting:
+                if not has_section:
+                    lines.append('\n[Wtclient]\n')
+                lines.append('wtclient.active=1\n')
+                f.seek(0)
+                f.writelines(lines)
+                f.truncate()
+    except Exception as e:
+        print(f"Error modifying file: {e}")
+    else:
+        print("Successfully updated lnd.conf" if not has_setting else "Setting already exists")
 
 
 def main():
