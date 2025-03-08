@@ -157,7 +157,7 @@ You have no active or inactive subscriptions.
     if selected_sub['type'] == "watchtower":
         active_sessions = [si for si in selected_sub.get('session_info', []) if si['active_session_candidate']]
         text = '''
-This is a Lightning Watchtower subscription
+This is a Lightning Watchtower subscription test
 
 Pubkey: {pubkey}
 Address: {address}
