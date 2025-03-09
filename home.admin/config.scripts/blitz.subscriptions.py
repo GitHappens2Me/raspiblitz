@@ -78,12 +78,6 @@ def my_subscriptions():
         # On success, parse the raw JSON from stdout
         watchtowers = json.loads(result.stdout).get('towers', [])
         count_subscriptions += len(watchtowers)
-    
-    # TODO: Is this exception handling overkill?
-    except subprocess.CalledProcessError as e:
-        print(f"warning: {e.stdout.strip()}")
-    except json.JSONDecodeError:
-        print(f"warning: Invalid watchtower data format")
     except Exception as e:
         print(f"warning: Unexpected error: {str(e)}")
 
@@ -139,8 +133,8 @@ You have no active or inactive subscriptions.
             'session_info': wt['session_info']  
         }
         active_state = "active" if lookup[str(lookup_index)]['active'] else "inactive"
-        name = "{0}...@{1}".format(wt['pubkey'][:8], wt['addresses'][0].split(':')[0][:8])
-        choices.append(("{0}".format(lookup_index), "WT ({0}) {1}".format(active_state, name.ljust(30))))
+        name = "{0}...@{1}".format(wt['pubkey'][:8], wt['addresses'][0].split(':')[0][-10:])
+        choices.append(("{0}".format(lookup_index), "Watchtower ({0}) {1}".format(active_state, name.ljust(30))))
 
 
     # show menu with options
@@ -273,41 +267,18 @@ The following additional information is available:
             print("# running: {0}".format(cmd))
             os.system(cmd)
             time.sleep(2)
-        elif selected_sub['type'] == "watchtower": # TODO Using cmd instead of subprocess for conformity with the others (Not sure which is best)
-            if(selected_sub['active']): #TODO combine this if statement
-                cmd = "python /home/admin/config.scripts/blitz.subscriptions.watchtower.py remove-watchtower {0}".format(
-                selected_sub['pubkey'],
-                )
-                print("# running: {0}".format(cmd))
-                os.system(cmd)
-                time.sleep(2) #TODO why am i waiting here? Not needed i think
+        elif selected_sub['type'] == "watchtower":
+            if selected_sub['active']:
+                action = "remove-watchtower"
+                args = selected_sub['pubkey']
             else:
-                cmd = "python /home/admin/config.scripts/blitz.subscriptions.watchtower.py add-watchtower {0}@{1}".format(
-                selected_sub['pubkey'],
-                selected_sub['addresses'][0]#TODO handle multiple addresses for a watchtower
-                )
-                print("# running: {0}".format(cmd))
-                os.system(cmd)
-                time.sleep(2)
-
-
-            
-
-        
-            #os.system("clear")
-            #try:
-            #    result = subprocess.run(
-            #        ['python', '/home/admin/config.scripts/blitz.subscriptions.watchtower.py', watchtower_option, selected_sub['pubkey']], 
-            #        capture_output=True,
-            #        text=True,
-            #        check=True,
-            #        timeout=30 
-            #    )
-            #    d.msgbox(f"Successfully removed watchtower subscription!\n\n{result.stdout}",
-            #            title="Success")
-            #except subprocess.CalledProcessError as e:
-            #    d.msgbox(f"Failed to remove watchtower:\n\n{e.stderr}",
-            #            title="Error")
+                action = "add-watchtower"
+                # TODO: Implement multiple address handling
+                args = f"{selected_sub['pubkey']}@{selected_sub['addresses'][0]}"  # Using first address temporarily
+                
+            cmd = f"python /home/admin/config.scripts/blitz.subscriptions.watchtower.py {action} {args}"
+            print(f"# running: {cmd}")
+            os.system(cmd)
         else:
             print("# FAIL: unknown subscription type")
             time.sleep(3)
@@ -508,26 +479,60 @@ def main():
         # Get watchtower URI from user
         code, uri = d.inputbox(
             "Enter Watchtower URI (pubkey@host:port):",
-            height=10,
-            width=60,
+            height=10, width=60,
             title="Watchtower Subscription"
         )
         if code != d.OK:
             return
 
         # Confirm subscription
-        code = d.yesno(f"Subscribe to this watchtower?\n\n{uri}",
-                    title="Confirm Subscription")
+        code = d.yesno(f"Subscribe to this watchtower?\n\n{uri}", title="Confirm Subscription")
         if code != d.OK:
             return
 
 
         # Check if WTCLIENT is activated in lnd.conf
         # if not activate it
-        cmd = "sudo python /home/admin/config.scripts/blitz.subscriptions.watchtower.py activate-watchtower-client" # TODO maybe i should use  subprocess.run here as well. What are dis-/advantages
-        print("# running: {0}".format(cmd))
-        os.system(cmd)
-        time.sleep(1)
+        result = subprocess.run(
+            ['sudo', 'python',
+            '/home/admin/config.scripts/blitz.subscriptions.watchtower.py',
+            'activate-watchtower-client'],
+            capture_output=True,
+            text=True
+        )
+
+        # Handle exit codes
+        if result.returncode == 0:
+            pass
+        elif result.returncode == 1:
+            code = d.yesno(
+                "\nLND needs to restart to activate changes.\n\nRestart now?\n",  # Trailing \n important
+                title="Restart Required",
+                yes_label="Restart Now",
+                no_label="Cancel",
+                width=50,
+                height=8  # Explicit height
+            )   
+            if code == d.OK:
+                os.system("clear")
+                print("Restarting LND... (this might take a few minutes)")
+                try:
+                    subprocess.run(
+                        ['sudo', 'systemctl', 'restart', 'lnd'],
+                        check=True,
+                        stdout=subprocess.DEVNULL,
+                        stderr=subprocess.DEVNULL
+                    )
+                    d.msgbox("LND successfully restarted\n\nPlease unlock your Wallet", title="Success")
+                    return
+                except subprocess.CalledProcessError:
+                    d.msgbox("Restart failed!", title="Error")
+        elif result.returncode == 2:
+            error_msg = result.stderr.strip() or "Unknown error"
+            d.msgbox(f"Activation failed:\n\n{error_msg}", title="Error")
+        else:
+            d.msgbox(f"Unexpected exit code: {result.returncode}", title="Error")
+
 
         # Execute subscription command
         try:
